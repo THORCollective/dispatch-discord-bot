@@ -35,16 +35,26 @@ class DispatchDiscordPoster:
         Returns:
             Formatted Discord message
         """
-        message = f"**New THOR Collective Dispatch Post!** 🚀\n\n[{title}]({link})\n\n{content_snippet}"
+        # Clean up title and content to remove any problematic characters
+        clean_title = title.strip()
+        clean_content = content_snippet.strip()
+        
+        # Ensure URL is properly formatted
+        if not link.startswith('http'):
+            link = f"https://{link}"
+        
+        message = f"**New THOR Collective Dispatch Post!** 🚀\n\n[{clean_title}](<{link}>)\n\n{clean_content}"
         
         # Ensure message doesn't exceed Discord limit (2000 chars)
         if len(message) > 2000:
             # Trim content snippet to fit
-            available_space = 2000 - len(f"**New THOR Collective Dispatch Post!** 🚀\n\n[{title}]({link})\n\n...")
+            base_message = f"**New THOR Collective Dispatch Post!** 🚀\n\n[{clean_title}](<{link}>)\n\n"
+            available_space = 2000 - len(base_message) - 3  # 3 for "..."
             if available_space > 50:
-                content_snippet = content_snippet[:available_space] + "..."
-                message = f"**New THOR Collective Dispatch Post!** 🚀\n\n[{title}]({link})\n\n{content_snippet}"
+                clean_content = clean_content[:available_space] + "..."
+                message = base_message + clean_content
         
+        logger.debug(f"Formatted Discord message: {message}")
         return message
     
     def post_to_discord(self, title: str, link: str, content_snippet: str) -> bool:

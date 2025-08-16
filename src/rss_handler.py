@@ -54,20 +54,48 @@ def get_latest_dispatch_posts(feed: feedparser.FeedParserDict, hours_back: int =
     
     # Get current time and calculate cutoff
     now = datetime.now()
-    cutoff_hours = hours_back
+    cutoff_time = now.timestamp() - (hours_back * 3600)  # Convert hours to seconds
     
     new_posts = []
     
     for entry in feed.entries:
-        # Extract post data
-        post_data = extract_post_data(entry)
+        # Parse the publication date
+        entry_time = None
         
-        # For hourly checks, we'll just get the latest post to avoid duplicates
-        # In a real implementation, you'd want to track processed posts
-        if len(new_posts) == 0:  # Just get the most recent post
+        # Try to get publication time from various fields
+        if hasattr(entry, 'published_parsed') and entry.published_parsed:
+            import time
+            entry_time = time.mktime(entry.published_parsed)
+        elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+            import time
+            entry_time = time.mktime(entry.updated_parsed)
+        elif hasattr(entry, 'published'):
+            try:
+                from dateutil import parser
+                parsed_date = parser.parse(entry.published)
+                entry_time = parsed_date.timestamp()
+            except:
+                logger.warning(f"Could not parse date: {entry.published}")
+        
+        # If we can't determine the time, skip this entry
+        if entry_time is None:
+            logger.warning(f"Could not determine publication time for: {entry.get('title', 'Unknown')}")
+            continue
+        
+        # Check if this post is within our time window
+        if entry_time >= cutoff_time:
+            post_data = extract_post_data(entry)
             new_posts.append(post_data)
-            logger.info(f"Found latest post: {post_data['title']}")
-        
+            logger.info(f"Found new post within {hours_back} hours: {post_data['title']}")
+        else:
+            # Since RSS feeds are typically ordered by date (newest first), 
+            # we can break early once we hit an old post
+            logger.debug(f"Post too old: {entry.get('title', 'Unknown')}")
+            break
+    
+    if not new_posts:
+        logger.info(f"No new posts found in the last {hours_back} hours")
+    
     return new_posts
 
 
