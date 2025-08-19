@@ -120,7 +120,10 @@ def extract_post_data(entry: Dict) -> Dict[str, str]:
     
     # Clean HTML from snippet if present
     import re
+    import html
     content_snippet = re.sub(r'<[^>]+>', '', content_snippet)
+    # Decode HTML entities
+    content_snippet = html.unescape(content_snippet)
     # Limit snippet length for Discord
     content_snippet = content_snippet[:300] + "..." if len(content_snippet) > 300 else content_snippet
     
@@ -139,7 +142,7 @@ def extract_post_data(entry: Dict) -> Dict[str, str]:
         pub_date = entry.updated
     
     post_data = {
-        "title": entry.get('title', 'No Title'),
+        "title": html.unescape(entry.get('title', 'No Title')),
         "link": entry.get('link', ''),
         "content_snippet": content_snippet,
         "author": author,
