@@ -5,7 +5,7 @@ DISPATCH_RSS_URL = "https://dispatch.thorcollective.com/feed"
 
 # Environment variables
 DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
-DISCORD_CHANNEL_ID = os.environ.get("DISCORD_CHANNEL_ID", "1367529936729935983")
+DISCORD_CHANNEL_ID = os.environ.get("DISCORD_CHANNEL_ID")
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 
 # Retry settings
