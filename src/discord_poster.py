@@ -43,16 +43,18 @@ class DispatchDiscordPoster:
         if not link.startswith('http'):
             link = f"https://{link}"
         
-        message = f"**New THOR Collective Dispatch Post!** 🚀\n\n[{clean_title}](<{link}>)\n\n{clean_content}"
+        # Format message with better structure
+        message = f"**New THOR Collective Dispatch Post!** 🚀\n\n{clean_title}\n\n{clean_content}\n\n[Read more]({link})"
         
         # Ensure message doesn't exceed Discord limit (2000 chars)
         if len(message) > 2000:
             # Trim content snippet to fit
-            base_message = f"**New THOR Collective Dispatch Post!** 🚀\n\n[{clean_title}](<{link}>)\n\n"
-            available_space = 2000 - len(base_message) - 3  # 3 for "..."
+            base_message = f"**New THOR Collective Dispatch Post!** 🚀\n\n{clean_title}\n\n"
+            footer = f"\n\n[Read more]({link})"
+            available_space = 2000 - len(base_message) - len(footer) - 3  # 3 for "..."
             if available_space > 50:
                 clean_content = clean_content[:available_space] + "..."
-                message = base_message + clean_content
+                message = base_message + clean_content + footer
         
         logger.debug(f"Formatted Discord message: {message}")
         return message
@@ -76,26 +78,38 @@ class DispatchDiscordPoster:
                 logger.info(f"[DRY RUN] Would post to Discord:\n{message}")
             return True
         
-        # Format message
-        message = self.format_dispatch_message(title, link, content_snippet)
+        # Ensure URL is properly formatted
+        if not link.startswith('http'):
+            link = f"https://{link}"
+        
+        # Create embed data for rich formatting
+        embed_data = {
+            'title': title.strip(),
+            'description': content_snippet.strip()[:500],  # Discord embed description limit
+            'url': link
+        }
+        
+        # Main message
+        message = "**New THOR Collective Dispatch Post!** 🚀"
         
         # Run the async posting function
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(self._post_message_async(message))
+            result = loop.run_until_complete(self._post_message_async(message, embed_data))
             loop.close()
             return result
         except Exception as e:
             logger.error(f"Error running async Discord post: {e}")
             return False
     
-    async def _post_message_async(self, message: str) -> bool:
+    async def _post_message_async(self, message: str, embed_data: Optional[dict] = None) -> bool:
         """
         Async function to post message to Discord.
         
         Args:
             message: Formatted message to post
+            embed_data: Optional embed data for rich formatting
             
         Returns:
             True if posted successfully, False otherwise
@@ -132,7 +146,19 @@ class DispatchDiscordPoster:
                             logger.info(f"  - {ch.name} (ID: {ch.id})")
                 else:
                     logger.info(f"Found channel: {channel.name} in {channel.guild.name}")
-                    await channel.send(message)
+                    
+                    # Send with embed if provided
+                    if embed_data:
+                        embed = discord.Embed(
+                            title=embed_data.get('title', ''),
+                            description=embed_data.get('description', ''),
+                            url=embed_data.get('url', ''),
+                            color=discord.Color.blue()
+                        )
+                        await channel.send(content=message, embed=embed)
+                    else:
+                        await channel.send(message)
+                    
                     logger.info("Successfully posted to Discord")
                     message_sent = True
                 
