@@ -71,8 +71,8 @@ class DispatchDiscordPoster:
         Returns:
             True if posted successfully, False otherwise
         """
-        if not self.client or DRY_RUN:
-            logger.info(f"Skipping Discord post (dry_run={DRY_RUN}, client={bool(self.client)})")
+        if not self.bot_token or DRY_RUN:
+            logger.info(f"Skipping Discord post (dry_run={DRY_RUN}, token={bool(self.bot_token)})")
             if DRY_RUN:
                 message = self.format_dispatch_message(title, link, content_snippet)
                 logger.info(f"[DRY RUN] Would post to Discord:\n{message}")
@@ -92,16 +92,108 @@ class DispatchDiscordPoster:
         # Main message
         message = "**New THOR Collective Dispatch Post!** 🚀"
         
-        # Run the async posting function
+        # Run the async posting function with a fresh client
         try:
+            # Create a new client for this message
+            intents = discord.Intents.default()
+            intents.message_content = True
+            client = discord.Client(intents=intents)
+            
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(self._post_message_async(message, embed_data))
+            result = loop.run_until_complete(self._post_message_with_client(client, message, embed_data))
             loop.close()
             return result
         except Exception as e:
             logger.error(f"Error running async Discord post: {e}")
             return False
+    
+    async def _post_message_with_client(self, client: discord.Client, message: str, embed_data: Optional[dict] = None) -> bool:
+        """
+        Async function to post message to Discord with a specific client.
+        
+        Args:
+            client: Discord client instance
+            message: Formatted message to post
+            embed_data: Optional embed data for rich formatting
+            
+        Returns:
+            True if posted successfully, False otherwise
+        """
+        try:
+            # Get the channel ID
+            if not self.channel_id:
+                logger.error("Discord channel ID not configured")
+                return False
+                
+            try:
+                channel_id_int = int(self.channel_id)
+            except ValueError:
+                logger.error(f"Invalid channel ID format: {self.channel_id}")
+                return False
+            
+            # Create event for when bot is ready
+            ready_event = asyncio.Event()
+            message_sent = False
+            
+            @client.event
+            async def on_ready():
+                nonlocal message_sent
+                logger.info(f"Bot connected as: {client.user}")
+                
+                # Get the channel
+                channel = client.get_channel(channel_id_int)
+                if not channel:
+                    logger.error(f"Could not find channel with ID: {self.channel_id}")
+                    # List available channels for debugging
+                    logger.info("Available channels:")
+                    for guild in client.guilds:
+                        for ch in guild.text_channels:
+                            logger.info(f"  - {ch.name} (ID: {ch.id})")
+                else:
+                    logger.info(f"Found channel: {channel.name} in {channel.guild.name}")
+                    
+                    # Send with embed if provided
+                    if embed_data:
+                        embed = discord.Embed(
+                            title=embed_data.get('title', ''),
+                            description=embed_data.get('description', ''),
+                            url=embed_data.get('url', ''),
+                            color=discord.Color.blue()
+                        )
+                        await channel.send(content=message, embed=embed)
+                    else:
+                        await channel.send(message)
+                    
+                    logger.info("Successfully posted to Discord")
+                    message_sent = True
+                
+                ready_event.set()
+                await client.close()
+            
+            # Start the client
+            logger.info("Connecting to Discord...")
+            await client.start(self.bot_token)
+            
+            # Wait for ready event
+            await ready_event.wait()
+            return message_sent
+            
+        except discord.LoginFailure:
+            logger.error("Discord login failed - check bot token")
+            return False
+        except discord.Forbidden:
+            logger.error("Bot doesn't have permission to send messages in this channel")
+            return False
+        except discord.HTTPException as e:
+            logger.error(f"Discord HTTP error: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error posting to Discord: {e}")
+            return False
+        finally:
+            if client and not client.is_closed():
+                await client.close()
     
     async def _post_message_async(self, message: str, embed_data: Optional[dict] = None) -> bool:
         """
@@ -199,16 +291,21 @@ class DispatchDiscordPoster:
         Returns:
             True if sent successfully, False otherwise
         """
-        if not self.client or DRY_RUN:
-            logger.info(f"Skipping error notification (dry_run={DRY_RUN}, client={bool(self.client)})")
+        if not self.bot_token or DRY_RUN:
+            logger.info(f"Skipping error notification (dry_run={DRY_RUN}, token={bool(self.bot_token)})")
             return True
         
         error_message = f"⚠️ **Dispatch Monitor Error** ⚠️\n\n{error_msg}"
         
         try:
+            # Create a new client for this message
+            intents = discord.Intents.default()
+            intents.message_content = True
+            client = discord.Client(intents=intents)
+            
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(self._post_message_async(error_message))
+            result = loop.run_until_complete(self._post_message_with_client(client, error_message))
             loop.close()
             return result
         except Exception as e:
