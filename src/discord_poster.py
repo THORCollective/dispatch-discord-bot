@@ -90,7 +90,7 @@ class DispatchDiscordPoster:
             'url': link,
             'author': author or 'Ask-a-Thrunter',  # Use provided author or default
             'author_url': 'https://dispatch.thorcollective.com',  # Author URL
-            'thumbnail': 'https://dispatch.thorcollective.com/favicon.ico',  # Thumbnail image
+            'thumbnail': 'https://pbs.twimg.com/profile_images/1719421917473927168/Aaifurr1_400x400.jpg',  # THOR Collective logo
             'footer': 'THOR Collective Dispatch'
         }
         
@@ -164,18 +164,17 @@ class DispatchDiscordPoster:
                             title=embed_data.get('title', ''),
                             description=embed_data.get('description', ''),
                             url=embed_data.get('url', ''),
-                            color=discord.Color.blue()
+                            color=0x0099ff  # Use hex color instead of discord.Color
                         )
                         
                         # Add author information
                         if embed_data.get('author'):
                             embed.set_author(
                                 name=embed_data.get('author'),
-                                url=embed_data.get('author_url', ''),
-                                icon_url=embed_data.get('author_icon', '')
+                                url=embed_data.get('author_url', '')
                             )
                         
-                        # Add thumbnail
+                        # Add thumbnail  
                         if embed_data.get('thumbnail'):
                             embed.set_thumbnail(url=embed_data.get('thumbnail'))
                         
@@ -186,13 +185,23 @@ class DispatchDiscordPoster:
                         # Add timestamp
                         embed.timestamp = discord.utils.utcnow()
                         
-                        await channel.send(content=message, embed=embed)
+                        # Log embed details for debugging
+                        logger.info(f"Sending embed with title: {embed.title}")
+                        logger.info(f"Embed URL: {embed.url}")
+                        logger.info(f"Embed author: {embed.author.name if embed.author else 'None'}")
+                        logger.info(f"Embed thumbnail: {embed.thumbnail.url if embed.thumbnail else 'None'}")
+                        
+                        # Send the message with embed
+                        sent_message = await channel.send(content=message, embed=embed)
+                        logger.info(f"Message sent with ID: {sent_message.id}")
                     else:
                         await channel.send(message)
                     
                     logger.info("Successfully posted to Discord")
                     message_sent = True
                 
+                # Wait a moment to ensure message is fully sent
+                await asyncio.sleep(1)
                 ready_event.set()
                 await client.close()
             
@@ -270,18 +279,17 @@ class DispatchDiscordPoster:
                             title=embed_data.get('title', ''),
                             description=embed_data.get('description', ''),
                             url=embed_data.get('url', ''),
-                            color=discord.Color.blue()
+                            color=0x0099ff  # Use hex color instead of discord.Color
                         )
                         
                         # Add author information
                         if embed_data.get('author'):
                             embed.set_author(
                                 name=embed_data.get('author'),
-                                url=embed_data.get('author_url', ''),
-                                icon_url=embed_data.get('author_icon', '')
+                                url=embed_data.get('author_url', '')
                             )
                         
-                        # Add thumbnail
+                        # Add thumbnail  
                         if embed_data.get('thumbnail'):
                             embed.set_thumbnail(url=embed_data.get('thumbnail'))
                         
@@ -292,13 +300,23 @@ class DispatchDiscordPoster:
                         # Add timestamp
                         embed.timestamp = discord.utils.utcnow()
                         
-                        await channel.send(content=message, embed=embed)
+                        # Log embed details for debugging
+                        logger.info(f"Sending embed with title: {embed.title}")
+                        logger.info(f"Embed URL: {embed.url}")
+                        logger.info(f"Embed author: {embed.author.name if embed.author else 'None'}")
+                        logger.info(f"Embed thumbnail: {embed.thumbnail.url if embed.thumbnail else 'None'}")
+                        
+                        # Send the message with embed
+                        sent_message = await channel.send(content=message, embed=embed)
+                        logger.info(f"Message sent with ID: {sent_message.id}")
                     else:
                         await channel.send(message)
                     
                     logger.info("Successfully posted to Discord")
                     message_sent = True
                 
+                # Wait a moment to ensure message is fully sent
+                await asyncio.sleep(1)
                 ready_event.set()
                 await self.client.close()
             
