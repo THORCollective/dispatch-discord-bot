@@ -59,7 +59,7 @@ class DispatchDiscordPoster:
         logger.debug(f"Formatted Discord message: {message}")
         return message
     
-    def post_to_discord(self, title: str, link: str, content_snippet: str) -> bool:
+    def post_to_discord(self, title: str, link: str, content_snippet: str, author: str = None) -> bool:
         """
         Post Dispatch update to Discord.
         
@@ -67,6 +67,7 @@ class DispatchDiscordPoster:
             title: Post title
             link: Post URL
             content_snippet: Post content preview
+            author: Optional author name
             
         Returns:
             True if posted successfully, False otherwise
@@ -82,11 +83,15 @@ class DispatchDiscordPoster:
         if not link.startswith('http'):
             link = f"https://{link}"
         
-        # Create embed data for rich formatting
+        # Create embed data for rich formatting with all the necessary fields
         embed_data = {
             'title': title.strip(),
             'description': content_snippet.strip()[:500],  # Discord embed description limit
-            'url': link
+            'url': link,
+            'author': author or 'Ask-a-Thrunter',  # Use provided author or default
+            'author_url': 'https://dispatch.thorcollective.com',  # Author URL
+            'thumbnail': 'https://dispatch.thorcollective.com/favicon.ico',  # Thumbnail image
+            'footer': 'THOR Collective Dispatch'
         }
         
         # Main message
@@ -161,6 +166,26 @@ class DispatchDiscordPoster:
                             url=embed_data.get('url', ''),
                             color=discord.Color.blue()
                         )
+                        
+                        # Add author information
+                        if embed_data.get('author'):
+                            embed.set_author(
+                                name=embed_data.get('author'),
+                                url=embed_data.get('author_url', ''),
+                                icon_url=embed_data.get('author_icon', '')
+                            )
+                        
+                        # Add thumbnail
+                        if embed_data.get('thumbnail'):
+                            embed.set_thumbnail(url=embed_data.get('thumbnail'))
+                        
+                        # Add footer
+                        if embed_data.get('footer'):
+                            embed.set_footer(text=embed_data.get('footer'))
+                        
+                        # Add timestamp
+                        embed.timestamp = discord.utils.utcnow()
+                        
                         await channel.send(content=message, embed=embed)
                     else:
                         await channel.send(message)
@@ -247,6 +272,26 @@ class DispatchDiscordPoster:
                             url=embed_data.get('url', ''),
                             color=discord.Color.blue()
                         )
+                        
+                        # Add author information
+                        if embed_data.get('author'):
+                            embed.set_author(
+                                name=embed_data.get('author'),
+                                url=embed_data.get('author_url', ''),
+                                icon_url=embed_data.get('author_icon', '')
+                            )
+                        
+                        # Add thumbnail
+                        if embed_data.get('thumbnail'):
+                            embed.set_thumbnail(url=embed_data.get('thumbnail'))
+                        
+                        # Add footer
+                        if embed_data.get('footer'):
+                            embed.set_footer(text=embed_data.get('footer'))
+                        
+                        # Add timestamp
+                        embed.timestamp = discord.utils.utcnow()
+                        
                         await channel.send(content=message, embed=embed)
                     else:
                         await channel.send(message)

@@ -74,7 +74,8 @@ def monitor_dispatch() -> bool:
             success = discord_poster.post_to_discord(
                 title=post['title'],
                 link=post['link'],
-                content_snippet=post['content_snippet']
+                content_snippet=post['content_snippet'],
+                author=post.get('author')
             )
             
             if success:
