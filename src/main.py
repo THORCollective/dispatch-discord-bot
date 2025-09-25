@@ -45,7 +45,7 @@ def monitor_dispatch() -> bool:
         True if successful, False otherwise
     """
     logger.info("=" * 50)
-    logger.info("Starting THOR Collective Dispatch Monitor")
+    logger.info("Starting THOR Collective Dispatch Monthly Recap")
     logger.info(f"Dry run mode: {DRY_RUN}")
     logger.info("=" * 50)
     
@@ -56,9 +56,9 @@ def monitor_dispatch() -> bool:
         if not feed:
             raise Exception("Failed to fetch Dispatch RSS feed")
         
-        # Step 2: Get latest posts (checking last hour)
-        logger.info("Checking for new Dispatch posts")
-        new_posts = get_latest_dispatch_posts(feed, hours_back=1)
+        # Step 2: Get latest posts (checking last month for recap)
+        logger.info("Checking for Dispatch posts from the last 30 days")
+        new_posts = get_latest_dispatch_posts(feed, hours_back=720)  # 720 hours = 30 days
         
         if not new_posts:
             logger.info("No new Dispatch posts found")
@@ -86,8 +86,8 @@ def monitor_dispatch() -> bool:
         
         # Summary
         logger.info("=" * 50)
-        logger.info("Dispatch Monitor completed")
-        logger.info(f"New posts found: {len(new_posts)}")
+        logger.info("Dispatch Monthly Recap completed")
+        logger.info(f"Posts from last 30 days: {len(new_posts)}")
         logger.info(f"Successfully posted: {success_count}")
         logger.info("=" * 50)
         

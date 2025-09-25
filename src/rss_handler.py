@@ -86,7 +86,11 @@ def get_latest_dispatch_posts(feed: feedparser.FeedParserDict, hours_back: int =
         if entry_time >= cutoff_time:
             post_data = extract_post_data(entry)
             new_posts.append(post_data)
-            logger.info(f"Found new post within {hours_back} hours: {post_data['title']}")
+            if hours_back > 24:
+                days = hours_back // 24
+                logger.info(f"Found post within {days} days: {post_data['title']}")
+            else:
+                logger.info(f"Found post within {hours_back} hours: {post_data['title']}")
         else:
             # Since RSS feeds are typically ordered by date (newest first), 
             # we can break early once we hit an old post
@@ -94,7 +98,11 @@ def get_latest_dispatch_posts(feed: feedparser.FeedParserDict, hours_back: int =
             break
     
     if not new_posts:
-        logger.info(f"No new posts found in the last {hours_back} hours")
+        if hours_back > 24:
+            days = hours_back // 24
+            logger.info(f"No new posts found in the last {days} days")
+        else:
+            logger.info(f"No new posts found in the last {hours_back} hours")
     
     return new_posts
 
