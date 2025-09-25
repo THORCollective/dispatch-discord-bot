@@ -64,25 +64,14 @@ def monitor_dispatch() -> bool:
             logger.info("No new Dispatch posts found")
             return True
         
-        # Step 3: Post each new update to Discord
+        # Step 3: Post all new updates to Discord in a single session
         discord_poster = DispatchDiscordPoster()
-        success_count = 0
         
-        for post in new_posts:
-            logger.info(f"Processing post: {post['title']}")
-            
-            success = discord_poster.post_to_discord(
-                title=post['title'],
-                link=post['link'],
-                content_snippet=post['content_snippet'],
-                author=post.get('author')
-            )
-            
-            if success:
-                success_count += 1
-                logger.info(f"Successfully posted: {post['title']}")
-            else:
-                logger.error(f"Failed to post: {post['title']}")
+        # Reverse the order so oldest posts are sent first (chronological order)
+        new_posts.reverse()
+        
+        logger.info(f"Posting {len(new_posts)} posts to Discord in chronological order...")
+        success_count = discord_poster.post_multiple_to_discord(new_posts)
         
         # Summary
         logger.info("=" * 50)

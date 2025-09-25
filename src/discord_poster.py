@@ -59,6 +59,57 @@ class DispatchDiscordPoster:
         logger.debug(f"Formatted Discord message: {message}")
         return message
     
+    def post_multiple_to_discord(self, posts: list) -> int:
+        """
+        Post multiple Dispatch updates to Discord in a single session.
+        
+        Args:
+            posts: List of post dictionaries with title, link, content_snippet, author
+            
+        Returns:
+            Number of successfully posted messages
+        """
+        if not self.bot_token or DRY_RUN:
+            logger.info(f"Skipping Discord posts (dry_run={DRY_RUN}, token={bool(self.bot_token)})")
+            if DRY_RUN:
+                for post in posts:
+                    message = self.format_dispatch_message(post['title'], post['link'], post['content_snippet'])
+                    logger.info(f"[DRY RUN] Would post to Discord:\n{message}")
+            return len(posts)
+        
+        # Prepare all embeds
+        embeds_to_send = []
+        for post in posts:
+            link = post['link']
+            if not link.startswith('http'):
+                link = f"https://{link}"
+            
+            embed_data = {
+                'title': post['title'].strip(),
+                'description': post['content_snippet'].strip()[:500],
+                'url': link,
+                'author': post.get('author') or 'Ask-a-Thrunter',
+                'author_url': 'https://dispatch.thorcollective.com',
+                'thumbnail': 'https://pbs.twimg.com/profile_images/1719421917473927168/Aaifurr1_400x400.jpg',
+                'footer': 'THOR Collective Dispatch'
+            }
+            embeds_to_send.append(embed_data)
+        
+        # Run the async posting function with a single client
+        try:
+            intents = discord.Intents.default()
+            intents.message_content = True
+            client = discord.Client(intents=intents)
+            
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(self._post_multiple_messages_with_client(client, embeds_to_send))
+            loop.close()
+            return result
+        except Exception as e:
+            logger.error(f"Error running async Discord posts: {e}")
+            return 0
+    
     def post_to_discord(self, title: str, link: str, content_snippet: str, author: str = None) -> bool:
         """
         Post Dispatch update to Discord.
@@ -112,6 +163,118 @@ class DispatchDiscordPoster:
         except Exception as e:
             logger.error(f"Error running async Discord post: {e}")
             return False
+    
+    async def _post_multiple_messages_with_client(self, client: discord.Client, embeds_to_send: list) -> int:
+        """
+        Async function to post multiple messages to Discord with a single client.
+        
+        Args:
+            client: Discord client instance
+            embeds_to_send: List of embed data dictionaries
+            
+        Returns:
+            Number of successfully posted messages
+        """
+        try:
+            if not self.channel_id:
+                logger.error("Discord channel ID not configured")
+                return 0
+                
+            try:
+                channel_id_int = int(self.channel_id)
+            except ValueError:
+                logger.error(f"Invalid channel ID format: {self.channel_id}")
+                return 0
+            
+            ready_event = asyncio.Event()
+            messages_sent = 0
+            
+            @client.event
+            async def on_ready():
+                nonlocal messages_sent
+                logger.info(f"Bot connected as: {client.user}")
+                
+                channel = client.get_channel(channel_id_int)
+                if not channel:
+                    logger.error(f"Could not find channel with ID: {self.channel_id}")
+                    logger.info("Available channels:")
+                    for guild in client.guilds:
+                        for ch in guild.text_channels:
+                            logger.info(f"  - {ch.name} (ID: {ch.id})")
+                else:
+                    logger.info(f"Found channel: {channel.name} in {channel.guild.name}")
+                    
+                    # Send all embeds with rate limit handling
+                    for i, embed_data in enumerate(embeds_to_send):
+                        try:
+                            embed = discord.Embed(
+                                title=embed_data.get('title', ''),
+                                description=embed_data.get('description', ''),
+                                url=embed_data.get('url', ''),
+                                color=0x0099ff
+                            )
+                            
+                            if embed_data.get('author'):
+                                embed.set_author(
+                                    name=embed_data.get('author'),
+                                    url=embed_data.get('author_url', '')
+                                )
+                            
+                            if embed_data.get('thumbnail'):
+                                embed.set_thumbnail(url=embed_data.get('thumbnail'))
+                            
+                            if embed_data.get('footer'):
+                                embed.set_footer(text=embed_data.get('footer'))
+                            
+                            embed.timestamp = discord.utils.utcnow()
+                            
+                            logger.info(f"Sending embed {i+1}/{len(embeds_to_send)}: {embed.title}")
+                            
+                            message = "**New THOR Collective Dispatch Post!** 🚀"
+                            sent_message = await channel.send(content=message, embed=embed)
+                            logger.info(f"Message sent with ID: {sent_message.id}")
+                            messages_sent += 1
+                            
+                            # Add delay between messages to avoid rate limiting
+                            if i < len(embeds_to_send) - 1:
+                                await asyncio.sleep(2)  # 2 second delay between posts
+                                
+                        except discord.HTTPException as e:
+                            logger.error(f"Failed to send embed {i+1}: {e}")
+                            if "rate limited" in str(e).lower():
+                                logger.info("Rate limited, waiting 5 seconds...")
+                                await asyncio.sleep(5)
+                                # Try again
+                                try:
+                                    sent_message = await channel.send(content=message, embed=embed)
+                                    messages_sent += 1
+                                except:
+                                    logger.error(f"Failed to retry embed {i+1}")
+                    
+                    logger.info(f"Successfully posted {messages_sent}/{len(embeds_to_send)} messages to Discord")
+                
+                await asyncio.sleep(1)
+                ready_event.set()
+                await client.close()
+            
+            logger.info("Connecting to Discord...")
+            await client.start(self.bot_token)
+            
+            await ready_event.wait()
+            return messages_sent
+            
+        except discord.LoginFailure:
+            logger.error("Discord login failed - check bot token")
+            return 0
+        except discord.Forbidden:
+            logger.error("Bot doesn't have permission to send messages in this channel")
+            return 0
+        except Exception as e:
+            logger.error(f"Unexpected error posting to Discord: {e}")
+            return 0
+        finally:
+            if client and not client.is_closed():
+                await client.close()
     
     async def _post_message_with_client(self, client: discord.Client, message: str, embed_data: Optional[dict] = None) -> bool:
         """
